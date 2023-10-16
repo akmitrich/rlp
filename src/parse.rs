@@ -7,8 +7,8 @@ pub enum Quantifier {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PatternElement {
-    quantifier: Quantifier,
-    object: PatternObject,
+    pub quantifier: Quantifier,
+    pub object: PatternObject,
 }
 
 #[derive(Debug, Clone, PartialEq)]
