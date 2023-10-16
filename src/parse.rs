@@ -21,12 +21,7 @@ pub enum PatternObject {
 pub fn parse(re: &str) -> Vec<PatternElement> {
     let mut stack = vec![vec![]];
     let mut re = re.chars();
-    loop {
-        let next = if let Some(c) = re.next() {
-            c
-        } else {
-            break;
-        };
+    while let Some(next) = re.next() {
         match next {
             '.' => {
                 stack.last_mut().unwrap().push(PatternElement::new(
