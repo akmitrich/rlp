@@ -1,5 +1,6 @@
 use parse::{PatternElement, PatternObject};
 
+pub mod nfa;
 pub mod parse;
 
 pub struct BackTrack {
@@ -153,7 +154,7 @@ mod tests {
     #[test]
     fn it_works() {
         let states = parse::parse(r"a?bc");
-        dbg!(eval(&states, "abc"));
+        dbg!(eval(&states, "bc"));
     }
 
     #[test]
