@@ -8,28 +8,45 @@ pub struct Regex {
 
 #[derive(Debug)]
 pub struct Match<'a> {
-    pub re: &'a Regex,
     pub subj: &'a str,
-    pub is_matched: bool,
-    pub matches: Vec<&'a str>,
+    pub captures: Vec<&'a str>,
 }
 
 #[derive(Debug)]
 pub enum Code {
-    Char(char),
+    Char(CharacterClass),
     Jmp(usize),
     Split { x: usize, y: usize },
     Save(usize),
     Match,
 }
 
+#[derive(Debug)]
+pub enum CharacterClass {
+    Literal(char),
+    WordChar,
+}
+
+impl CharacterClass {
+    pub fn is_matched(&self, other: &char) -> bool {
+        match self {
+            CharacterClass::Literal(c) => c == other,
+            CharacterClass::WordChar => other.is_alphanumeric() || other == &'_',
+        }
+    }
+}
+
 pub fn parse(re: &str) -> Regex {
     let mut regex = Regex {
-        program: vec![],
+        program: vec![Code::Save(0)],
         captures: 0,
         anchor_start: false,
         anchor_end: false,
     };
+    if re.starts_with('^') {
+        regex.anchor_start = true
+    }
+    let re = re.strip_prefix('^').unwrap_or(re);
     let mut re = re.chars();
     let mut k = 1;
     while let Some(c) = re.next() {
@@ -41,6 +58,10 @@ pub fn parse(re: &str) -> Regex {
             '+' => regex.program.push(Code::Split {
                 x: pc - 1,
                 y: pc + 1,
+            }),
+            '-' => regex.program.push(Code::Split {
+                x: pc + 1,
+                y: pc - 1,
             }),
             '*' => {
                 regex
@@ -56,40 +77,54 @@ pub fn parse(re: &str) -> Regex {
                     panic!("Too many captures.")
                 }
             }
-            c => regex.program.push(Code::Char(c)),
+            '%' => {
+                if let Some(c) = re.next() {
+                    match c {
+                        'w' => regex.program.push(Code::Char(CharacterClass::WordChar)),
+                        c @ ('%' | '*') => {
+                            regex.program.push(Code::Char(CharacterClass::Literal(c)))
+                        }
+                        _ => panic!("Illegal char in escaping."),
+                    }
+                } else {
+                    panic!("Inappropriate escaping.")
+                }
+            }
+            c => regex.program.push(Code::Char(CharacterClass::Literal(c))),
         }
     }
+    regex.program.push(Code::Save(1));
     regex.program.push(Code::Match);
     regex.captures = k - 1;
     regex
 }
 
 pub fn regex_match<'a>(re: &'a Regex, subj: &'a str) -> Vec<Match<'a>> {
-    (0..if re.anchor_start { 1 } else { subj.len() })
-        .filter_map(|n| {
-            let mut saved = [0; 20];
-            let subsubj = &subj[n..];
-            let is_matched = dbg!(exec(
-                &re.program,
-                subsubj.chars().collect::<Vec<_>>().as_slice(),
-                0,
-                0,
-                &mut saved,
-            ));
-            if is_matched {
-                Some(Match {
-                    re,
-                    subj,
-                    is_matched,
-                    matches: (0..(re.captures + 1))
-                        .map(|n| &subsubj[saved[2 * n]..saved[2 * n + 1]])
-                        .collect(),
-                })
-            } else {
-                None
-            }
-        })
-        .collect()
+    let mut matches = vec![];
+    let mut sp = 0;
+    let mut saved = [0; 20];
+    let input = subj.chars().collect::<Vec<_>>();
+    while sp < subj.len() {
+        if let Some(parsed) = exec(&re.program, input.as_slice(), 0, sp, &mut saved) {
+            matches.push(Match {
+                subj,
+                captures: (0..(re.captures + 1))
+                    .map(|n| &subj[saved[2 * n]..saved[2 * n + 1]])
+                    .collect(),
+            });
+            sp = parsed;
+        } else {
+            sp += 1;
+        }
+        if re.anchor_start {
+            break;
+        }
+    }
+    if re.anchor_end && sp < subj.len() {
+        vec![]
+    } else {
+        matches
+    }
 }
 
 type ThreadList = std::collections::VecDeque<usize>;
@@ -100,36 +135,38 @@ fn exec(
     mut pc: usize,
     mut sp: usize,
     saved: &mut [usize],
-) -> bool {
+) -> Option<usize> {
     loop {
-        match program[pc] {
+        match &program[pc] {
             Code::Char(c) => {
-                if subj.get(sp) != Some(&c) {
-                    return false;
-                } else {
+                let other = subj.get(sp)?;
+                if c.is_matched(other) {
                     pc += 1;
                     sp += 1;
-                }
-            }
-            Code::Jmp(x) => pc = x,
-            Code::Split { x, y } => {
-                if exec(program, subj, x, sp, saved) {
-                    return true;
                 } else {
-                    pc = y;
+                    return None;
                 }
             }
-            Code::Save(slot) => {
+            Code::Jmp(x) => pc = *x,
+            Code::Split { x, y } => {
+                if let Some(sp) = exec(program, subj, *x, sp, saved) {
+                    return Some(sp);
+                } else {
+                    pc = *y;
+                }
+            }
+            Code::Save(x) => {
+                let slot = *x;
                 let old = saved[slot];
                 saved[slot] = sp;
-                if exec(program, subj, pc + 1, sp, saved) {
-                    return true;
+                if let Some(sp) = exec(program, subj, pc + 1, sp, saved) {
+                    return Some(sp);
                 } else {
                     saved[slot] = old;
-                    return false;
+                    return None;
                 }
             }
-            Code::Match => return true,
+            Code::Match => return Some(sp),
         }
     }
 }
@@ -144,7 +181,7 @@ pub fn thompsonvm(program: &[Code], input: &str) -> bool {
             let inst = program.get(pc).unwrap();
             match inst {
                 Code::Char(command) => {
-                    if &data == command {
+                    if command.is_matched(&data) {
                         nlist.push_back(pc + 1);
                     }
                 }
@@ -167,12 +204,26 @@ pub fn thompsonvm(program: &[Code], input: &str) -> bool {
 
 #[cfg(test)]
 mod test {
+    use pcre2::bytes::RegexBuilder;
+
     use super::*;
 
     #[test]
     fn it_works() {
-        let regex = parse("(a+)(b*)");
-        let subj = "bab";
-        println!("{:?} -> {:?}", regex, regex_match(&regex, subj));
+        let regex = parse("%w+&?");
+        let subj = "bab__&&&ghi";
+        let m = regex_match(&regex, subj);
+        let pcre = RegexBuilder::new()
+            .ucp(true)
+            .utf(true)
+            .build(r"\w+&?")
+            .unwrap();
+        let pcre_m = pcre.find_iter(b"bab__&&&ghi").collect::<Vec<_>>();
+        assert_eq!(pcre_m.len(), m.len());
+        for (m, pcre_m) in m.iter().zip(pcre_m.iter().map(|m| m.as_ref().unwrap())) {
+            let s1 = *m.captures.first().unwrap();
+            let s2 = &subj[pcre_m.start()..pcre_m.end()];
+            assert_eq!(s1, s2);
+        }
     }
 }
