@@ -147,8 +147,6 @@ fn state_matches_str_at_index(
 
 #[cfg(test)]
 mod tests {
-    use crate::parse::parse;
-
     use super::*;
 
     #[test]
