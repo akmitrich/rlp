@@ -5,12 +5,24 @@ pub(super) fn exec(ctx: &mut Context) -> bool {
         match &ctx.program[ctx.program_counter] {
             Code::Char(c) => {
                 let other = ctx.subj.get(ctx.subj_pointer);
-                if other.is_some() && c.is_matched(other.unwrap(), ctx) {
+                if other.is_some() && c.is_matched(other.unwrap()) {
                     ctx.program_counter += 1;
                     ctx.subj_pointer += 1;
                 } else {
                     return false;
                 }
+            }
+            Code::Captured(n) => {
+                let old = ctx.subj_pointer;
+                for i in ctx.captured_range(*n) {
+                    if ctx.subj[ctx.subj_pointer] == ctx.subj[i] {
+                        ctx.subj_pointer += 1;
+                    } else {
+                        ctx.subj_pointer = old;
+                        return false;
+                    }
+                }
+                ctx.program_counter += 1;
             }
             Code::Jmp(x) => ctx.program_counter = *x,
             Code::Split { x, y } => {
@@ -41,6 +53,7 @@ pub(super) fn exec(ctx: &mut Context) -> bool {
 #[derive(Debug)]
 pub(super) enum Code {
     Char(CharacterClass),
+    Captured(usize),
     Jmp(usize),
     Split { x: usize, y: usize },
     Save(usize),
@@ -63,7 +76,6 @@ pub(super) enum CharacterClass {
     Hexadecimal(bool),
     Set(Vec<CharacterClass>),
     Unset(Vec<CharacterClass>),
-    String(usize),
 }
 
 #[derive(Debug, Default)]
@@ -90,7 +102,7 @@ impl<'a> Context<'a> {
 }
 
 impl CharacterClass {
-    pub(super) fn is_matched(&self, other: &char, ctx: &mut Context) -> bool {
+    pub(super) fn is_matched(&self, other: &char) -> bool {
         match self {
             CharacterClass::Literal(c) => c == other,
             CharacterClass::Any => true,
@@ -164,25 +176,8 @@ impl CharacterClass {
                     !other.is_ascii_hexdigit()
                 }
             }
-            CharacterClass::Set(s) => s.iter().any(|x| x.is_matched(other, ctx)),
-            CharacterClass::Unset(s) => s.iter().all(|x| !x.is_matched(other, ctx)),
-            CharacterClass::String(n) => {
-                let old = ctx.subj_pointer;
-                let mut is_matched = true;
-                for i in ctx.captured_range(*n) {
-                    if ctx.subj[ctx.subj_pointer] == ctx.subj[i] {
-                        ctx.subj_pointer += 1;
-                    } else {
-                        ctx.subj_pointer = old;
-                        is_matched = false;
-                        break;
-                    }
-                }
-                if ctx.subj_pointer > old {
-                    ctx.subj_pointer -= 1;
-                }
-                is_matched
-            }
+            CharacterClass::Set(s) => s.iter().any(|x| x.is_matched(other)),
+            CharacterClass::Unset(s) => s.iter().all(|x| !x.is_matched(other)),
         }
     }
 }

@@ -12,7 +12,10 @@ where
     I: Iterator<Item = char>,
 {
     if let Some(c) = re.next() {
-        Code::Char(char_to_class(c))
+        match c {
+            '1'..='9' => Code::Captured(c.to_digit(10).unwrap() as _),
+            _ => Code::Char(char_to_class(c)),
+        }
     } else {
         panic!("Inappropriate escaping.")
     }
@@ -155,7 +158,6 @@ fn char_to_class(c: char) -> CharacterClass {
         's' => CharacterClass::WhiteSpace(is_in),
         'u' => CharacterClass::Uppercase(is_in),
         'x' => CharacterClass::Hexadecimal(is_in),
-        n @ '1'..='9' => CharacterClass::String(n.to_digit(10).unwrap() as _),
         c @ ('%' | '.' | '*' | '\\') => CharacterClass::Literal(c),
         _ => panic!("Illegal char in escaping."),
     }
@@ -164,7 +166,6 @@ fn char_to_class(c: char) -> CharacterClass {
 type _ThreadList = std::collections::VecDeque<usize>;
 
 fn _thompsonvm(program: &[Code], input: &str) -> bool {
-    let mut ctx = Default::default();
     let mut clist = _ThreadList::new();
     let mut nlist = _ThreadList::new();
     clist.push_back(0);
@@ -174,10 +175,11 @@ fn _thompsonvm(program: &[Code], input: &str) -> bool {
             let inst = program.get(pc).unwrap();
             match inst {
                 Code::Char(command) => {
-                    if command.is_matched(&data, &mut ctx) {
+                    if command.is_matched(&data) {
                         nlist.push_back(pc + 1);
                     }
                 }
+                Code::Captured(_) => todo!(),
                 Code::Match => return true,
                 Code::Jmp(x) => {
                     clist.push_back(*x);
