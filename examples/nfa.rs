@@ -1,5 +1,5 @@
 fn main() {
-    let re = rlp::nfa::parse(r"/%*(.-)%*/(%1continues%*/)");
+    let re = rlp::nfa::compile(r"/%*(.-)%*/(%1continues%*/)");
     let s = "some code then /* comment */ comment continues*/";
     dbg!(s.len());
     let m = rlp::nfa::regex_match(&re, s);
@@ -8,7 +8,7 @@ fn main() {
 }
 
 fn _main() {
-    let re = rlp::nfa::parse(r"(%a-)(b*)");
+    let re = rlp::nfa::compile(r"(%a-)(b*)");
     let subj = "&bab&&&";
     let m = rlp::nfa::regex_match(&re, subj);
     println!("Regex: {:?}", re);

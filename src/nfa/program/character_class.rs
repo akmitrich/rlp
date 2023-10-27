@@ -1,67 +1,5 @@
-use std::ops::Range;
-
-pub(super) fn exec(ctx: &mut Context) -> bool {
-    loop {
-        match &ctx.program[ctx.program_counter] {
-            Code::Char(c) => {
-                let other = ctx.subj.get(ctx.subj_pointer);
-                if other.is_some() && c.is_matched(other.unwrap()) {
-                    ctx.program_counter += 1;
-                    ctx.subj_pointer += 1;
-                } else {
-                    return false;
-                }
-            }
-            Code::Captured(n) => {
-                let old = ctx.subj_pointer;
-                for i in ctx.captured_range(*n) {
-                    if ctx.subj[ctx.subj_pointer] == ctx.subj[i] {
-                        ctx.subj_pointer += 1;
-                    } else {
-                        ctx.subj_pointer = old;
-                        return false;
-                    }
-                }
-                ctx.program_counter += 1;
-            }
-            Code::Jmp(x) => ctx.program_counter = *x,
-            Code::Split { x, y } => {
-                ctx.program_counter = *x;
-                if exec(ctx) {
-                    return true;
-                } else {
-                    ctx.program_counter = *y;
-                }
-            }
-            Code::Save(x) => {
-                let slot = *x;
-                let old = ctx.saved[slot];
-                ctx.saved[slot] = ctx.subj_pointer;
-                ctx.program_counter += 1;
-                if exec(ctx) {
-                    return true;
-                } else {
-                    ctx.saved[slot] = old;
-                    return false;
-                }
-            }
-            Code::Match => return true,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(super) enum Code {
-    Char(CharacterClass),
-    Captured(usize),
-    Jmp(usize),
-    Split { x: usize, y: usize },
-    Save(usize),
-    Match,
-}
-
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum CharacterClass {
+pub enum CharacterClass {
     Literal(char),
     Any,
     AlphaNumeric(bool),
@@ -78,31 +16,8 @@ pub(super) enum CharacterClass {
     Unset(Vec<CharacterClass>),
 }
 
-#[derive(Debug, Default)]
-pub(super) struct Context<'a> {
-    pub program: &'a [Code],
-    pub subj: &'a [char],
-    pub program_counter: usize,
-    pub subj_pointer: usize,
-    pub saved: [usize; 20],
-}
-
-impl<'a> Context<'a> {
-    pub fn new(program: &'a [Code], subj: &'a [char]) -> Self {
-        Self {
-            program,
-            subj,
-            ..Default::default()
-        }
-    }
-
-    pub fn captured_range(&self, n: usize) -> Range<usize> {
-        self.saved[2 * n]..self.saved[2 * n + 1]
-    }
-}
-
 impl CharacterClass {
-    pub(super) fn is_matched(&self, other: &char) -> bool {
+    pub fn is_matched(&self, other: &char) -> bool {
         match self {
             CharacterClass::Literal(c) => c == other,
             CharacterClass::Any => true,

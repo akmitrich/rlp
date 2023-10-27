@@ -3,33 +3,8 @@ use super::{
     Match,
 };
 
-pub fn parse(re: &str) -> Regex {
+pub fn compile(re: &str) -> Regex {
     Regex::new(re)
-}
-
-fn take_escaped_code<I>(re: &mut I) -> Code
-where
-    I: Iterator<Item = char>,
-{
-    if let Some(c) = re.next() {
-        match c {
-            '1'..='9' => Code::Captured(c.to_digit(10).unwrap() as _),
-            _ => Code::Char(char_to_class(c)),
-        }
-    } else {
-        panic!("Inappropriate escaping.")
-    }
-}
-
-fn take_escaped_class<I>(re: &mut I) -> CharacterClass
-where
-    I: Iterator<Item = char>,
-{
-    if let Some(c) = re.next() {
-        char_to_class(c)
-    } else {
-        panic!("Inappropriate escaping.")
-    }
 }
 
 pub fn regex_match<'a>(re: &'a Regex, subj: &'a str) -> Vec<Match<'a>> {
@@ -80,6 +55,7 @@ impl Regex {
         let re = re.strip_prefix('^').unwrap_or(re);
         let re = re.strip_suffix('$').unwrap_or(re);
         let mut re = re.chars().peekable();
+
         while let Some(c) = re.next() {
             let pc = program.len();
             match c {
@@ -132,6 +108,7 @@ impl Regex {
                 c => program.push(Code::Char(CharacterClass::Literal(c))),
             }
         }
+
         program.push(Code::Save(1));
         program.push(Code::Match);
         captures -= 1; // 0th capture is the matched pattern if it's empty the subject is not matched
@@ -142,6 +119,31 @@ impl Regex {
             anchor_end,
             captures,
         }
+    }
+}
+
+fn take_escaped_code<I>(re: &mut I) -> Code
+where
+    I: Iterator<Item = char>,
+{
+    if let Some(c) = re.next() {
+        match c {
+            '1'..='9' => Code::Captured(c.to_digit(10).unwrap() as _),
+            _ => Code::Char(char_to_class(c)),
+        }
+    } else {
+        panic!("Inappropriate escaping.")
+    }
+}
+
+fn take_escaped_class<I>(re: &mut I) -> CharacterClass
+where
+    I: Iterator<Item = char>,
+{
+    if let Some(c) = re.next() {
+        char_to_class(c)
+    } else {
+        panic!("Inappropriate escaping.")
     }
 }
 
@@ -158,7 +160,7 @@ fn char_to_class(c: char) -> CharacterClass {
         's' => CharacterClass::WhiteSpace(is_in),
         'u' => CharacterClass::Uppercase(is_in),
         'x' => CharacterClass::Hexadecimal(is_in),
-        c @ ('%' | '.' | '*' | '\\') => CharacterClass::Literal(c),
+        c @ ('%' | '\\' | '.' | '*' | '+' | '-' | '?') => CharacterClass::Literal(c),
         _ => panic!("Illegal char in escaping."),
     }
 }
