@@ -2,7 +2,7 @@ fn main() {
     let re = rlp::nfa::compile(r"/%*(.-)%*/(%1continues%*/)");
     let s = "some code then /* comment */ comment continues*/";
     dbg!(s.len());
-    let m = rlp::nfa::regex_match(&re, s);
+    let m = re.match_all(s);
     println!("{:?}", m);
     println!("{:?}", re);
 }
@@ -10,7 +10,7 @@ fn main() {
 fn _main() {
     let re = rlp::nfa::compile(r"(%a-)(b*)");
     let subj = "&bab&&&";
-    let m = rlp::nfa::regex_match(&re, subj);
+    let m = re.match_all(subj);
     println!("Regex: {:?}", re);
     println!("NFA: {:?} ({})", m, m.len());
     let pcre = pcre2::bytes::RegexBuilder::new()

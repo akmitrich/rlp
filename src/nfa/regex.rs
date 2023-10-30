@@ -7,36 +7,6 @@ pub fn compile(re: &str) -> Regex {
     Regex::new(re)
 }
 
-pub fn regex_match<'a>(re: &'a Regex, subj: &'a str) -> Vec<Match<'a>> {
-    let mut matches = vec![];
-    let input = subj.chars().collect::<Vec<_>>();
-    let mut ctx = Context::new(&re.program, &input);
-    while ctx.subj_pointer < input.len() {
-        if super::program::exec(&mut ctx) {
-            if !re.anchor_end || ctx.subj_pointer >= input.len() {
-                let found = Match {
-                    subj,
-                    captures: (0..(re.captures + 1))
-                        .map(|n| &subj[ctx.captured_range(n)])
-                        .collect(),
-                };
-                println!("Found: {:?}", ctx.saved);
-                if found.captures.first().unwrap().is_empty() {
-                    ctx.subj_pointer += 1;
-                }
-                matches.push(found);
-            }
-        } else {
-            ctx.subj_pointer += 1;
-        }
-        if re.anchor_start {
-            break;
-        }
-        ctx.program_counter = 0;
-    }
-    matches
-}
-
 #[derive(Debug)]
 pub struct Regex {
     program: Vec<Code>,
@@ -120,6 +90,36 @@ impl Regex {
             captures,
         }
     }
+
+    pub fn match_all<'a>(&self, subj: &'a str) -> Vec<Match<'a>> {
+        let mut matches = vec![];
+        let input = subj.chars().collect::<Vec<_>>();
+        let mut ctx = Context::new(&self.program, &input);
+        while ctx.subj_pointer < input.len() {
+            if super::program::exec(&mut ctx) {
+                if !self.anchor_end || ctx.subj_pointer >= input.len() {
+                    let found = Match {
+                        subj,
+                        captures: (0..(self.captures + 1))
+                            .map(|n| &subj[ctx.captured_range(n)])
+                            .collect(),
+                    };
+                    println!("Found: {:?}", ctx.saved);
+                    if found.captures.first().unwrap().is_empty() {
+                        ctx.subj_pointer += 1;
+                    }
+                    matches.push(found);
+                }
+            } else {
+                ctx.subj_pointer += 1;
+            }
+            if self.anchor_start {
+                break;
+            }
+            ctx.program_counter = 0;
+        }
+        matches
+    }
 }
 
 fn take_escaped_code<I>(re: &mut I) -> Code
@@ -149,17 +149,17 @@ where
 
 fn char_to_class(c: char) -> CharacterClass {
     let is_in = c.is_ascii_lowercase();
-    match c.to_ascii_lowercase() {
-        'w' => CharacterClass::AlphaNumeric(is_in),
-        'a' => CharacterClass::Letter(is_in),
-        'c' => CharacterClass::ControlChar(is_in),
-        'd' => CharacterClass::Digit(is_in),
-        'g' => CharacterClass::Printable(is_in),
-        'l' => CharacterClass::Lowercase(is_in),
-        'p' => CharacterClass::Punctuation(is_in),
-        's' => CharacterClass::WhiteSpace(is_in),
-        'u' => CharacterClass::Uppercase(is_in),
-        'x' => CharacterClass::Hexadecimal(is_in),
+    match c {
+        'w' | 'W' => CharacterClass::AlphaNumeric(is_in),
+        'a' | 'A' => CharacterClass::Letter(is_in),
+        'c' | 'C' => CharacterClass::ControlChar(is_in),
+        'd' | 'D' => CharacterClass::Digit(is_in),
+        'g' | 'G' => CharacterClass::Printable(is_in),
+        'l' | 'L' => CharacterClass::Lowercase(is_in),
+        'p' | 'P' => CharacterClass::Punctuation(is_in),
+        's' | 'S' => CharacterClass::WhiteSpace(is_in),
+        'u' | 'U' => CharacterClass::Uppercase(is_in),
+        'x' | 'X' => CharacterClass::Hexadecimal(is_in),
         c @ ('%' | '\\' | '.' | '*' | '+' | '-' | '?') => CharacterClass::Literal(c),
         _ => panic!("Illegal char in escaping."),
     }

@@ -1,7 +1,7 @@
 mod program;
 pub mod regex;
 
-pub use regex::{compile, regex_match};
+pub use regex::{compile, Regex};
 
 #[derive(Debug)]
 pub struct Match<'a> {
@@ -19,7 +19,7 @@ mod test {
     fn it_works() {
         let regex = compile("%w+&?");
         let subj = "bab__&&&ghi";
-        let m = regex_match(&regex, subj);
+        let m = regex.match_all(subj);
         let pcre = RegexBuilder::new()
             .ucp(true)
             .utf(true)
