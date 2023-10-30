@@ -10,7 +10,7 @@ pub(super) fn exec(ctx: &mut Context) -> bool {
     loop {
         match &ctx.program[ctx.program_counter] {
             Code::Char(c) => {
-                let other = ctx.subj.get(ctx.subj_pointer);
+                let other = ctx.subj.get(ctx.subj_pointer).map(|(_, other)| other);
                 if other.is_some() && c.is_matched(other.unwrap()) {
                     ctx.program_counter += 1;
                     ctx.subj_pointer += 1;
@@ -20,8 +20,8 @@ pub(super) fn exec(ctx: &mut Context) -> bool {
             }
             Code::Captured(n) => {
                 let old = ctx.subj_pointer;
-                for i in ctx.captured_range(*n) {
-                    if ctx.subj[ctx.subj_pointer] == ctx.subj[i] {
+                for i in ctx.saved_range(*n) {
+                    if ctx.subj.get(ctx.subj_pointer).map(|(_, c)| c) == Some(&ctx.subj[i].1) {
                         ctx.subj_pointer += 1;
                     } else {
                         ctx.subj_pointer = old;

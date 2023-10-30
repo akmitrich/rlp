@@ -93,7 +93,8 @@ impl Regex {
 
     pub fn match_all<'a>(&self, subj: &'a str) -> Vec<Match<'a>> {
         let mut matches = vec![];
-        let input = subj.chars().collect::<Vec<_>>();
+        let input = subj.char_indices().collect::<Vec<_>>();
+        println!("Input: {:?}", input.iter().enumerate().collect::<Vec<_>>());
         let mut ctx = Context::new(&self.program, &input);
         while ctx.subj_pointer < input.len() {
             if super::program::exec(&mut ctx) {

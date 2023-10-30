@@ -1,10 +1,10 @@
 fn main() {
-    let re = rlp::nfa::compile(r"/%*(.-)%*/(%1continues%*/)");
-    let s = "some code then /* comment */ comment continues*/";
+    let re = rlp::nfa::compile(r"/%*(.-)%*/(%1continues)%*/");
+    println!("{:?}", re);
+    let s = "some code then /* мама */ мама continues*/";
     dbg!(s.len());
     let m = re.match_all(s);
     println!("{:?}", m);
-    println!("{:?}", re);
 }
 
 fn _main() {
