@@ -1,7 +1,7 @@
 fn main() {
-    let re = rlp::nfa::compile(r"/%*(.-)%*/(%1continues)%*/");
+    let re = rlp::nfa::compile(r".?b");
     println!("{:?}", re);
-    let s = "some code then /* мама */ мама continues*/";
+    let s = "aaab";
     dbg!(s.len());
     let m = re.match_all(s);
     println!("{:?}", m);

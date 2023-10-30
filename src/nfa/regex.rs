@@ -129,6 +129,7 @@ where
 {
     if let Some(c) = re.next() {
         match c {
+            'b' => Code::Border(re.next().unwrap(), re.next().unwrap()),
             '1'..='9' => Code::Captured(c.to_digit(10).unwrap() as _),
             _ => Code::Char(char_to_class(c)),
         }
@@ -183,6 +184,7 @@ fn _thompsonvm(program: &[Code], input: &str) -> bool {
                     }
                 }
                 Code::Captured(_) => todo!(),
+                Code::Border(_, _) => todo!(),
                 Code::Match => return true,
                 Code::Jmp(x) => {
                     clist.push_back(*x);

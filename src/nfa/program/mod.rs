@@ -30,6 +30,30 @@ pub(super) fn exec(ctx: &mut Context) -> bool {
                 }
                 ctx.program_counter += 1;
             }
+            Code::Border(x, y) => {
+                let old = ctx.subj_pointer;
+                let start = ctx.subj[ctx.subj_pointer].1;
+                if x != &start {
+                    return false;
+                }
+                let mut counter = 1;
+                while counter > 0 {
+                    ctx.subj_pointer += 1;
+                    if let Some((_, c)) = ctx.subj.get(ctx.subj_pointer) {
+                        if x == c {
+                            counter += 1;
+                        }
+                        if y == c {
+                            counter -= 1;
+                        }
+                    } else {
+                        ctx.subj_pointer = old;
+                        return false;
+                    }
+                }
+                ctx.subj_pointer += 1;
+                ctx.program_counter += 1;
+            }
             Code::Jmp(x) => ctx.program_counter = *x,
             Code::Split { x, y } => {
                 ctx.program_counter = *x;

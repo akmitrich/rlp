@@ -4,6 +4,7 @@ use super::CharacterClass;
 pub enum Code {
     Char(CharacterClass),
     Captured(usize),
+    Border(char, char),
     Jmp(usize),
     Split { x: usize, y: usize },
     Save(usize),
