@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum CharacterClass {
     Literal(char),
@@ -12,6 +14,7 @@ pub enum CharacterClass {
     WhiteSpace(bool),
     Uppercase(bool),
     Hexadecimal(bool),
+    Range(RangeInclusive<char>),
     Set(Vec<CharacterClass>),
     Unset(Vec<CharacterClass>),
 }
@@ -91,6 +94,7 @@ impl CharacterClass {
                     !other.is_ascii_hexdigit()
                 }
             }
+            CharacterClass::Range(r) => r.contains(other),
             CharacterClass::Set(s) => s.iter().any(|x| x.is_matched(other)),
             CharacterClass::Unset(s) => s.iter().all(|x| !x.is_matched(other)),
         }

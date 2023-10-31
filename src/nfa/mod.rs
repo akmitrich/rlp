@@ -1,3 +1,4 @@
+mod lexer;
 mod program;
 pub mod regex;
 

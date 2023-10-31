@@ -1,4 +1,8 @@
 fn main() {
+    println!(
+        "{:?}",
+        rlp::nfa::lexer::lex(r"[%a%d_+*][^%xghi]").collect::<Vec<_>>()
+    );
     let re = rlp::nfa::compile(r".?b");
     println!("{:?}", re);
     let s = "aaab";
