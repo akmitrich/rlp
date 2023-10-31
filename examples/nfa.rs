@@ -1,11 +1,8 @@
 fn main() {
-    println!(
-        "{:?}",
-        rlp::nfa::lexer::lex(r"[%a%d_+*][^%xghi]").collect::<Vec<_>>()
-    );
-    let re = rlp::nfa::compile(r".?b");
+    
+    let re = rlp::nfa::compile(r"(мыла (%w+))");
     println!("{:?}", re);
-    let s = "aaab";
+    let s = "мама мыла раму.";
     dbg!(s.len());
     let m = re.match_all(s);
     println!("{:?}", m);

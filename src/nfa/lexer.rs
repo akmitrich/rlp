@@ -40,12 +40,7 @@ pub fn lex(re: &str) -> impl Iterator<Item = (Lex, Quantifier)> + '_ {
                     (x, y) if x != y => Lex::Border(x, y),
                     _ => panic!("Border chars must be different"),
                 },
-                c @ ('w' | 'W' | 'a' | 'A' | 'c' | 'C' | 'd' | 'D' | 'g' | 'G' | 'l' | 'L'
-                | 'p' | 'P' | 's' | 'S' | 'u' | 'U' | 'x' | 'X') => {
-                    Lex::CharacterClass(char_to_class(c))
-                }
-                c if !c.is_alphanumeric() => Lex::Literal(c),
-                _ => panic!("Bad escaping"),
+                c => Lex::CharacterClass(char_to_class(c)),
             },
             c => Lex::Literal(c),
         };
@@ -82,16 +77,11 @@ where
 {
     re.batching(|re| {
         Some(match re.next()? {
-            '%' => match re.next()? {
-                c @ ('w' | 'W' | 'a' | 'A' | 'c' | 'C' | 'd' | 'D' | 'g' | 'G' | 'l' | 'L'
-                | 'p' | 'P' | 's' | 'S' | 'u' | 'U' | 'x' | 'X') => char_to_class(c),
-                c if !c.is_alphanumeric() => CharacterClass::Literal(c),
-                _ => unimplemented!(),
-            },
+            '%' => char_to_class(re.next()?),
             ']' => return None,
             c => {
                 if let Some('-') = re.peek() {
-                    re.next()?;
+                    re.next().unwrap();
                     let end = re.next()?;
                     CharacterClass::Range(c..=end)
                 } else {
@@ -116,7 +106,7 @@ fn char_to_class(c: char) -> CharacterClass {
         's' | 'S' => CharacterClass::WhiteSpace(is_in),
         'u' | 'U' => CharacterClass::Uppercase(is_in),
         'x' | 'X' => CharacterClass::Hexadecimal(is_in),
-        c @ ('%' | '\\' | '.' | '*' | '+' | '-' | '?') => CharacterClass::Literal(c),
+        c if !c.is_alphanumeric() => CharacterClass::Literal(c),
         _ => panic!("Illegal char in escaping."),
     }
 }

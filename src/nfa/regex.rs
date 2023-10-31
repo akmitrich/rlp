@@ -1,4 +1,5 @@
 use super::{
+    lexer::{lex, Lex, Quantifier},
     program::{CharacterClass, Code, Context},
     Match,
 };
@@ -18,70 +19,66 @@ pub struct Regex {
 impl Regex {
     pub fn new(re: &str) -> Self {
         let mut program = vec![Code::Save(0)];
-        let mut captures = 1;
+        let mut saves = vec![];
+        let mut captures = 0;
         let anchor_start = re.starts_with('^');
         let anchor_end = re.ends_with('$');
 
         let re = re.strip_prefix('^').unwrap_or(re);
         let re = re.strip_suffix('$').unwrap_or(re);
-        let mut re = re.chars().peekable();
+        let re = lex(re);
 
-        while let Some(c) = re.next() {
-            let pc = program.len();
-            match c {
-                '?' => program.insert(pc - 1, Code::Split { x: pc, y: pc + 1 }),
-                '+' => program.push(Code::Split {
-                    x: pc - 1,
-                    y: pc + 1,
-                }),
-                '*' => {
-                    program.insert(pc - 1, Code::Split { x: pc, y: pc + 2 });
-                    program.push(Code::Jmp(pc - 1));
+        for (lex, quantifier) in re {
+            match lex {
+                Lex::AnyChar => program.push(Code::Char(CharacterClass::Any)),
+                Lex::Literal(c) => program.push(Code::Char(CharacterClass::Literal(c))),
+                Lex::CharacterClass(c) => program.push(Code::Char(c)),
+                Lex::CharacterSet(s) => program.push(Code::Char(s)),
+                Lex::Captured(n) => {
+                    assert_eq!(Quantifier::ExactlyOne, quantifier);
+                    program.push(Code::Captured(n))
                 }
-                '-' => {
-                    program.insert(pc - 1, Code::Split { x: pc + 2, y: pc });
-                    program.push(Code::Jmp(pc - 1));
+                Lex::Border(x, y) => {
+                    assert_eq!(Quantifier::ExactlyOne, quantifier);
+                    program.push(Code::Border(x, y))
                 }
-                '(' => program.push(Code::Save(2 * captures)),
-                ')' => {
-                    program.push(Code::Save(2 * captures + 1));
+                Lex::SaveOpen => {
+                    assert_eq!(Quantifier::ExactlyOne, quantifier);
                     captures += 1;
                     if captures > 9 {
                         panic!("Too many captures.")
                     }
+                    saves.push(captures);
+                    program.push(Code::Save(2 * captures));
                 }
-                '[' => {
-                    let un = if re.peek() == Some('^').as_ref() {
-                        re.next();
-                        true
-                    } else {
-                        false
-                    };
-                    let mut set = vec![];
-                    while let Some(c) = re.next() {
-                        match c {
-                            ']' => break,
-                            '%' => set.push(take_escaped_class(&mut re)),
-                            _ => {
-                                set.push(CharacterClass::Literal(c));
-                            }
-                        }
-                    }
-                    program.push(Code::Char(if un {
-                        CharacterClass::Unset(set)
-                    } else {
-                        CharacterClass::Set(set)
-                    }));
+                Lex::SaveClose => {
+                    assert_eq!(Quantifier::ExactlyOne, quantifier);
+                    let captured = saves.pop().unwrap();
+                    program.push(Code::Save(2 * captured + 1));
                 }
-                '.' => program.push(Code::Char(CharacterClass::Any)),
-                '%' => program.push(take_escaped_code(&mut re)),
-                c => program.push(Code::Char(CharacterClass::Literal(c))),
+            }
+            let pc = program.len();
+            match quantifier {
+                Quantifier::ExactlyOne => {}
+                Quantifier::ZeroOrOne => program.insert(pc - 1, Code::Split { x: pc, y: pc + 1 }),
+                Quantifier::OneOrMany => program.push(Code::Split {
+                    x: pc - 1,
+                    y: pc + 1,
+                }),
+                Quantifier::ZeroOrManyGreedy => {
+                    program.insert(pc - 1, Code::Split { x: pc, y: pc + 2 });
+                    program.push(Code::Jmp(pc - 1));
+                }
+                Quantifier::ZeroOrManyUngreedy => {
+                    program.insert(pc - 1, Code::Split { x: pc + 2, y: pc });
+                    program.push(Code::Jmp(pc - 1));
+                }
             }
         }
 
         program.push(Code::Save(1));
         program.push(Code::Match);
-        captures -= 1; // 0th capture is the matched pattern if it's empty the subject is not matched
+        assert!(saves.is_empty());
 
         Self {
             program,
@@ -120,50 +117,6 @@ impl Regex {
             ctx.program_counter = 0;
         }
         matches
-    }
-}
-
-fn take_escaped_code<I>(re: &mut I) -> Code
-where
-    I: Iterator<Item = char>,
-{
-    if let Some(c) = re.next() {
-        match c {
-            'b' => Code::Border(re.next().unwrap(), re.next().unwrap()),
-            '1'..='9' => Code::Captured(c.to_digit(10).unwrap() as _),
-            _ => Code::Char(char_to_class(c)),
-        }
-    } else {
-        panic!("Inappropriate escaping.")
-    }
-}
-
-fn take_escaped_class<I>(re: &mut I) -> CharacterClass
-where
-    I: Iterator<Item = char>,
-{
-    if let Some(c) = re.next() {
-        char_to_class(c)
-    } else {
-        panic!("Inappropriate escaping.")
-    }
-}
-
-fn char_to_class(c: char) -> CharacterClass {
-    let is_in = c.is_ascii_lowercase();
-    match c {
-        'w' | 'W' => CharacterClass::AlphaNumeric(is_in),
-        'a' | 'A' => CharacterClass::Letter(is_in),
-        'c' | 'C' => CharacterClass::ControlChar(is_in),
-        'd' | 'D' => CharacterClass::Digit(is_in),
-        'g' | 'G' => CharacterClass::Printable(is_in),
-        'l' | 'L' => CharacterClass::Lowercase(is_in),
-        'p' | 'P' => CharacterClass::Punctuation(is_in),
-        's' | 'S' => CharacterClass::WhiteSpace(is_in),
-        'u' | 'U' => CharacterClass::Uppercase(is_in),
-        'x' | 'X' => CharacterClass::Hexadecimal(is_in),
-        c @ ('%' | '\\' | '.' | '*' | '+' | '-' | '?') => CharacterClass::Literal(c),
-        _ => panic!("Illegal char in escaping."),
     }
 }
 
