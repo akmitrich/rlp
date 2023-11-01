@@ -3,7 +3,7 @@ use itertools::Itertools;
 use crate::bytecode::character_class::CharacterClass;
 
 #[derive(Debug, PartialEq)]
-pub enum Lex {
+pub enum PatternElement {
     AnyChar,
     Literal(char),
     CharacterClass(CharacterClass),
@@ -24,45 +24,42 @@ pub enum Quantifier {
     ZeroOrManyUngreedy,
 }
 
-pub fn lex(re: &str) -> impl Iterator<Item = (Lex, Quantifier)> + '_ {
+pub fn lex(re: &str) -> impl Iterator<Item = (PatternElement, Quantifier)> + '_ {
     let mut saves = vec![];
     let mut captures = 0;
     let re = re.chars().peekable();
     re.batching(move |re| {
         let lex = match re.next()? {
-            '.' => Lex::AnyChar,
-            '[' => Lex::CharacterSet(make_character_set(re)),
+            '.' => PatternElement::AnyChar,
+            '[' => PatternElement::CharacterSet(make_character_set(re)),
             '(' => {
                 captures += 1;
                 if captures > 9 {
                     panic!("Too many captures.")
                 }
                 saves.push(captures);
-                Lex::SaveOpen(captures)
+                PatternElement::SaveOpen(captures)
             }
             ')' => {
                 let captured = saves.pop().unwrap();
-                Lex::SaveClose(captured)
+                PatternElement::SaveClose(captured)
             }
             '%' => match re.next()? {
-                'n' => match re.next()? {
-                    d @ ('1'..='9') => Lex::Captured(d.to_digit(10).unwrap() as _),
-                    _ => panic!("Inappropriate code %n"),
-                },
+                d @ ('1'..='9') => PatternElement::Captured(d.to_digit(10).unwrap() as _),
                 'b' => match (re.next()?, re.next()?) {
-                    (x, y) if x != y => Lex::Border(x, y),
+                    (x, y) if x != y => PatternElement::Border(x, y),
                     _ => panic!("Border chars must be different"),
                 },
                 'f' => {
                     if let Some('[') = re.next() {
-                        Lex::Frontier(make_character_set(re))
+                        PatternElement::Frontier(make_character_set(re))
                     } else {
                         panic!("After %f must be '['")
                     }
                 }
-                c => Lex::CharacterClass(char_to_class(c)),
+                c => PatternElement::CharacterClass(char_to_class(c)),
             },
-            c => Lex::Literal(c),
+            c => PatternElement::Literal(c),
         };
         let quantifier = match re.peek() {
             Some(c) if ['*', '+', '-', '?'].contains(c) => match re.next().unwrap() {
@@ -135,7 +132,7 @@ fn char_to_class(c: char) -> CharacterClass {
 mod test {
     use super::*;
 
-    fn run(re: &str, answer: &[(Lex, Quantifier)], comment: &str) {
+    fn run(re: &str, answer: &[(PatternElement, Quantifier)], comment: &str) {
         assert_eq!(
             answer,
             lex(re).collect::<Vec<_>>().as_slice(),
@@ -149,10 +146,10 @@ mod test {
         let abcd = lex("abcd").collect::<Vec<_>>();
         assert_eq!(
             &[
-                (Lex::Literal('a'), Quantifier::ExactlyOne),
-                (Lex::Literal('b'), Quantifier::ExactlyOne),
-                (Lex::Literal('c'), Quantifier::ExactlyOne),
-                (Lex::Literal('d'), Quantifier::ExactlyOne)
+                (PatternElement::Literal('a'), Quantifier::ExactlyOne),
+                (PatternElement::Literal('b'), Quantifier::ExactlyOne),
+                (PatternElement::Literal('c'), Quantifier::ExactlyOne),
+                (PatternElement::Literal('d'), Quantifier::ExactlyOne)
             ],
             abcd.as_slice()
         )
@@ -164,25 +161,28 @@ mod test {
             (
                 r"%a",
                 [(
-                    Lex::CharacterClass(CharacterClass::Letter(true)),
+                    PatternElement::CharacterClass(CharacterClass::Letter(true)),
                     Quantifier::ExactlyOne,
                 )],
             ),
             (
                 r"%d+",
                 [(
-                    Lex::CharacterClass(CharacterClass::Digit(true)),
+                    PatternElement::CharacterClass(CharacterClass::Digit(true)),
                     Quantifier::OneOrMany,
                 )],
             ),
             (
                 r"%D?",
                 [(
-                    Lex::CharacterClass(CharacterClass::Digit(false)),
+                    PatternElement::CharacterClass(CharacterClass::Digit(false)),
                     Quantifier::ZeroOrOne,
                 )],
             ),
-            (r"%n8", [(Lex::Captured(8), Quantifier::ExactlyOne)]),
+            (
+                r"%n8",
+                [(PatternElement::Captured(8), Quantifier::ExactlyOne)],
+            ),
         ];
         for (re, answer) in cases {
             run(re, &answer, "One lex.");
@@ -196,11 +196,11 @@ mod test {
                 r"%a%l",
                 [
                     (
-                        Lex::CharacterClass(CharacterClass::Letter(true)),
+                        PatternElement::CharacterClass(CharacterClass::Letter(true)),
                         Quantifier::ExactlyOne,
                     ),
                     (
-                        Lex::CharacterClass(CharacterClass::Lowercase(true)),
+                        PatternElement::CharacterClass(CharacterClass::Lowercase(true)),
                         Quantifier::ExactlyOne,
                     ),
                 ],
@@ -209,11 +209,11 @@ mod test {
                 r"%d+%D*",
                 [
                     (
-                        Lex::CharacterClass(CharacterClass::Digit(true)),
+                        PatternElement::CharacterClass(CharacterClass::Digit(true)),
                         Quantifier::OneOrMany,
                     ),
                     (
-                        Lex::CharacterClass(CharacterClass::Digit(false)),
+                        PatternElement::CharacterClass(CharacterClass::Digit(false)),
                         Quantifier::ZeroOrManyGreedy,
                     ),
                 ],
@@ -222,11 +222,11 @@ mod test {
                 r"%D?%w-",
                 [
                     (
-                        Lex::CharacterClass(CharacterClass::Digit(false)),
+                        PatternElement::CharacterClass(CharacterClass::Digit(false)),
                         Quantifier::ZeroOrOne,
                     ),
                     (
-                        Lex::CharacterClass(CharacterClass::AlphaNumeric(true)),
+                        PatternElement::CharacterClass(CharacterClass::AlphaNumeric(true)),
                         Quantifier::ZeroOrManyUngreedy,
                     ),
                 ],
@@ -235,7 +235,7 @@ mod test {
                 r"[%D?%w%-]-%U",
                 [
                     (
-                        Lex::CharacterSet(CharacterClass::Set(
+                        PatternElement::CharacterSet(CharacterClass::Set(
                             [
                                 CharacterClass::Digit(false),
                                 CharacterClass::Literal('?'),
@@ -247,7 +247,7 @@ mod test {
                         Quantifier::ZeroOrManyUngreedy,
                     ),
                     (
-                        Lex::CharacterClass(CharacterClass::Uppercase(false)),
+                        PatternElement::CharacterClass(CharacterClass::Uppercase(false)),
                         Quantifier::ExactlyOne,
                     ),
                 ],
@@ -256,10 +256,10 @@ mod test {
                 r"%a-%b78",
                 [
                     (
-                        Lex::CharacterClass(CharacterClass::Letter(true)),
+                        PatternElement::CharacterClass(CharacterClass::Letter(true)),
                         Quantifier::ZeroOrManyUngreedy,
                     ),
-                    (Lex::Border('7', '8'), Quantifier::ExactlyOne),
+                    (PatternElement::Border('7', '8'), Quantifier::ExactlyOne),
                 ],
             ),
         ];

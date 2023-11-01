@@ -1,6 +1,6 @@
 use crate::{
     bytecode::{character_class::CharacterClass, code::Code, context::Context},
-    lexer::{lex, Lex, Quantifier},
+    lexer::{lex, PatternElement, Quantifier},
     Match,
 };
 
@@ -26,7 +26,7 @@ impl Regex {
         let re = re.strip_suffix('$').unwrap_or(re);
 
         for (lex, quantifier) in lex(re) {
-            if let Lex::SaveOpen(n) = &lex {
+            if let PatternElement::SaveOpen(n) = &lex {
                 if *n > captures {
                     captures = *n;
                 }
@@ -109,15 +109,15 @@ impl Regex {
     }
 }
 
-fn code_for_lex(lex: Lex) -> Code {
+fn code_for_lex(lex: PatternElement) -> Code {
     match lex {
-        Lex::AnyChar => Code::Char(CharacterClass::Any),
-        Lex::Literal(c) => Code::Char(CharacterClass::Literal(c)),
-        Lex::CharacterClass(c) | Lex::CharacterSet(c) => Code::Char(c),
-        Lex::Captured(n) => Code::Captured(n),
-        Lex::Border(x, y) => Code::Border(x, y),
-        Lex::SaveOpen(n) => Code::Save(2 * n),
-        Lex::SaveClose(n) => Code::Save(2 * n + 1),
-        Lex::Frontier(s) => Code::Frontier(s),
+        PatternElement::AnyChar => Code::Char(CharacterClass::Any),
+        PatternElement::Literal(c) => Code::Char(CharacterClass::Literal(c)),
+        PatternElement::CharacterClass(c) | PatternElement::CharacterSet(c) => Code::Char(c),
+        PatternElement::Captured(n) => Code::Captured(n),
+        PatternElement::Border(x, y) => Code::Border(x, y),
+        PatternElement::SaveOpen(n) => Code::Save(2 * n),
+        PatternElement::SaveClose(n) => Code::Save(2 * n + 1),
+        PatternElement::Frontier(s) => Code::Frontier(s),
     }
 }

@@ -41,3 +41,5 @@ enum Code {
 }
 ```
 That is why this crate is far far from production quality. Please make some improvements to it. Or be inspired to make your implementation of the Lua patterns in Rust.
+
+Keep in touch!
