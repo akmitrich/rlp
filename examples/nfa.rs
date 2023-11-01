@@ -1,5 +1,5 @@
 fn main() {
-    let re = rlp::recursive::compile(r"%u+");
+    let re = rlp::regex::compile(r"%u+");
     println!("{:?}", re);
     let s = "маМА мЫЛа РАМУ";
     dbg!(s.len());
@@ -8,7 +8,7 @@ fn main() {
 }
 
 fn _main() {
-    let re = rlp::recursive::compile(r"(%a-)(b*)");
+    let re = rlp::regex::compile(r"(%a-)(b*)");
     let subj = "&bab&&&";
     let m = re.match_all(subj);
     println!("Regex: {:?}", re);

@@ -1,20 +1,12 @@
-mod lexer;
 mod program;
-pub mod regex;
 
-pub use regex::{compile, Regex};
-
-#[derive(Debug)]
-pub struct Match<'a> {
-    pub subj: &'a str,
-    pub captures: Vec<&'a str>,
-}
+pub use program::exec;
 
 #[cfg(test)]
 mod test {
     use pcre2::bytes::RegexBuilder;
 
-    use super::*;
+    use crate::regex::compile;
 
     #[test]
     fn it_works() {

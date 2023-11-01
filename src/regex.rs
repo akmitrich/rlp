@@ -1,6 +1,6 @@
-use super::{
+use crate::{
+    bytecode::{character_class::CharacterClass, code::Code, context::Context},
     lexer::{lex, Lex, Quantifier},
-    program::{CharacterClass, Code, Context},
     Match,
 };
 
@@ -77,13 +77,13 @@ impl Regex {
         }
     }
 
-    pub fn match_all<'a>(&self, subj: &'a str) -> Vec<Match<'a>> {
+    pub fn match_all<'a>(&self, subj: &'a str) -> Box<[Match<'a>]> {
         let mut matches = vec![];
-        let input = subj.char_indices().collect::<Vec<_>>();
+        let input = subj.char_indices().collect::<Vec<_>>().into_boxed_slice();
         println!("Input: {:?}", input.iter().enumerate().collect::<Vec<_>>());
         let mut ctx = Context::new(&self.program, &input);
         while ctx.subj_pointer < input.len() {
-            if super::program::exec(&mut ctx) {
+            if crate::recursive::exec(&mut ctx) {
                 if !self.anchor_end || ctx.subj_pointer >= input.len() {
                     let found = Match {
                         subj,
@@ -105,7 +105,7 @@ impl Regex {
             }
             ctx.program_counter = 0;
         }
-        matches
+        matches.into()
     }
 }
 
@@ -119,39 +119,4 @@ fn code_for_lex(lex: Lex) -> Code {
         Lex::SaveOpen(n) => Code::Save(2 * n),
         Lex::SaveClose(n) => Code::Save(2 * n + 1),
     }
-}
-
-type _ThreadList = std::collections::VecDeque<usize>;
-
-fn _thompsonvm(program: &[Code], input: &str) -> bool {
-    let mut clist = _ThreadList::new();
-    let mut nlist = _ThreadList::new();
-    clist.push_back(0);
-    for data in input.chars() {
-        while !clist.is_empty() {
-            let pc = clist.pop_front().unwrap();
-            let inst = program.get(pc).unwrap();
-            match inst {
-                Code::Char(command) => {
-                    if command.is_matched(&data) {
-                        nlist.push_back(pc + 1);
-                    }
-                }
-                Code::Captured(_) => todo!(),
-                Code::Border(_, _) => todo!(),
-                Code::Match => return true,
-                Code::Jmp(x) => {
-                    clist.push_back(*x);
-                }
-                Code::Split { x, y } => {
-                    clist.push_back(*x);
-                    clist.push_back(*y);
-                }
-                Code::Save(_) => unimplemented!(),
-            }
-        }
-        std::mem::swap(&mut clist, &mut nlist);
-        nlist.clear();
-    }
-    !clist.is_empty()
 }

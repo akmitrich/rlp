@@ -1,6 +1,5 @@
+use super::code::Code;
 use std::ops::Range;
-
-use super::Code;
 
 #[derive(Debug, Default)]
 pub struct Context<'a> {

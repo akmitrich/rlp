@@ -1,12 +1,7 @@
-mod character_class;
-mod code;
-mod context;
+use crate::bytecode::code::Code;
+use crate::bytecode::context::Context;
 
-pub use character_class::CharacterClass;
-pub use code::Code;
-pub use context::Context;
-
-pub(super) fn exec(ctx: &mut Context) -> bool {
+pub fn exec(ctx: &mut Context) -> bool {
     loop {
         match &ctx.program[ctx.program_counter] {
             Code::Char(c) => {

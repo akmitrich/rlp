@@ -1,4 +1,4 @@
-use super::CharacterClass;
+use super::character_class::CharacterClass;
 
 #[derive(Debug)]
 pub enum Code {

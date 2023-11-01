@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use super::program::CharacterClass;
+use crate::bytecode::character_class::CharacterClass;
 
 #[derive(Debug, PartialEq)]
 pub enum Lex {
