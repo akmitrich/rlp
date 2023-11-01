@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum CharacterClass {
     Literal(char),
     Any,
@@ -60,11 +60,12 @@ impl CharacterClass {
                 }
             }
             CharacterClass::Lowercase(is_in) => {
-                if *is_in {
-                    other.to_lowercase().next() == Some(*other)
-                } else {
-                    other.to_lowercase().next() != Some(*other)
-                }
+                other.is_alphabetic()
+                    && if *is_in {
+                        other.to_lowercase().next() == Some(*other)
+                    } else {
+                        other.to_lowercase().next() != Some(*other)
+                    }
             }
             CharacterClass::Punctuation(is_in) => {
                 if *is_in {
@@ -81,11 +82,12 @@ impl CharacterClass {
                 }
             }
             CharacterClass::Uppercase(is_in) => {
-                if *is_in {
-                    other.to_uppercase().next() == Some(*other)
-                } else {
-                    other.to_uppercase().next() != Some(*other)
-                }
+                other.is_alphabetic()
+                    && if *is_in {
+                        other.to_uppercase().next() == Some(*other)
+                    } else {
+                        other.to_uppercase().next() != Some(*other)
+                    }
             }
             CharacterClass::Hexadecimal(is_in) => {
                 if *is_in {

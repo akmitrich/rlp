@@ -10,7 +10,7 @@ pub fn compile(re: &str) -> Regex {
 
 #[derive(Debug)]
 pub struct Regex {
-    program: Vec<Code>,
+    program: Box<[Code]>,
     anchor_start: bool,
     anchor_end: bool,
     captures: usize,
@@ -18,70 +18,59 @@ pub struct Regex {
 
 impl Regex {
     pub fn new(re: &str) -> Self {
-        let mut program = vec![Code::Save(0)];
-        let mut saves = vec![];
+        let mut prog = vec![Code::Save(0)];
         let mut captures = 0;
         let anchor_start = re.starts_with('^');
         let anchor_end = re.ends_with('$');
-
         let re = re.strip_prefix('^').unwrap_or(re);
         let re = re.strip_suffix('$').unwrap_or(re);
-        let re = lex(re);
 
-        for (lex, quantifier) in re {
-            match lex {
-                Lex::AnyChar => program.push(Code::Char(CharacterClass::Any)),
-                Lex::Literal(c) => program.push(Code::Char(CharacterClass::Literal(c))),
-                Lex::CharacterClass(c) => program.push(Code::Char(c)),
-                Lex::CharacterSet(s) => program.push(Code::Char(s)),
-                Lex::Captured(n) => {
-                    assert_eq!(Quantifier::ExactlyOne, quantifier);
-                    program.push(Code::Captured(n))
-                }
-                Lex::Border(x, y) => {
-                    assert_eq!(Quantifier::ExactlyOne, quantifier);
-                    program.push(Code::Border(x, y))
-                }
-                Lex::SaveOpen => {
-                    assert_eq!(Quantifier::ExactlyOne, quantifier);
-                    captures += 1;
-                    if captures > 9 {
-                        panic!("Too many captures.")
-                    }
-                    saves.push(captures);
-                    program.push(Code::Save(2 * captures));
-                }
-                Lex::SaveClose => {
-                    assert_eq!(Quantifier::ExactlyOne, quantifier);
-                    let captured = saves.pop().unwrap();
-                    program.push(Code::Save(2 * captured + 1));
+        for (lex, quantifier) in lex(re) {
+            if let Lex::SaveOpen(n) = &lex {
+                if *n > captures {
+                    captures = *n;
                 }
             }
-            let pc = program.len();
+            let code = code_for_lex(lex);
+            let pc = prog.len();
             match quantifier {
-                Quantifier::ExactlyOne => {}
-                Quantifier::ZeroOrOne => program.insert(pc - 1, Code::Split { x: pc, y: pc + 1 }),
-                Quantifier::OneOrMany => program.push(Code::Split {
-                    x: pc - 1,
-                    y: pc + 1,
-                }),
+                Quantifier::ExactlyOne => {
+                    prog.push(code);
+                }
+                Quantifier::ZeroOrOne => {
+                    prog.push(Code::Split {
+                        x: pc + 1,
+                        y: pc + 2,
+                    });
+                    prog.push(code)
+                }
+                Quantifier::OneOrMany => {
+                    prog.push(code);
+                    prog.push(Code::Split { x: pc, y: pc + 2 });
+                }
                 Quantifier::ZeroOrManyGreedy => {
-                    program.insert(pc - 1, Code::Split { x: pc, y: pc + 2 });
-                    program.push(Code::Jmp(pc - 1));
+                    prog.push(Code::Split {
+                        x: pc + 1,
+                        y: pc + 3,
+                    });
+                    prog.push(code);
+                    prog.push(Code::Jmp(pc));
                 }
                 Quantifier::ZeroOrManyUngreedy => {
-                    program.insert(pc - 1, Code::Split { x: pc + 2, y: pc });
-                    program.push(Code::Jmp(pc - 1));
+                    prog.push(Code::Split {
+                        x: pc + 3,
+                        y: pc + 1,
+                    });
+                    prog.push(code);
+                    prog.push(Code::Jmp(pc));
                 }
             }
         }
-
-        program.push(Code::Save(1));
-        program.push(Code::Match);
-        assert!(saves.is_empty());
+        prog.push(Code::Save(1));
+        prog.push(Code::Match);
 
         Self {
-            program,
+            program: prog.into_boxed_slice(),
             anchor_start,
             anchor_end,
             captures,
@@ -117,6 +106,18 @@ impl Regex {
             ctx.program_counter = 0;
         }
         matches
+    }
+}
+
+fn code_for_lex(lex: Lex) -> Code {
+    match lex {
+        Lex::AnyChar => Code::Char(CharacterClass::Any),
+        Lex::Literal(c) => Code::Char(CharacterClass::Literal(c)),
+        Lex::CharacterClass(c) | Lex::CharacterSet(c) => Code::Char(c),
+        Lex::Captured(n) => Code::Captured(n),
+        Lex::Border(x, y) => Code::Border(x, y),
+        Lex::SaveOpen(n) => Code::Save(2 * n),
+        Lex::SaveClose(n) => Code::Save(2 * n + 1),
     }
 }
 

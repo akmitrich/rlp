@@ -10,8 +10,8 @@ pub enum Lex {
     CharacterSet(CharacterClass),
     Captured(usize),
     Border(char, char),
-    SaveOpen,
-    SaveClose,
+    SaveOpen(usize),
+    SaveClose(usize),
 }
 
 #[derive(Debug, PartialEq)]
@@ -24,13 +24,25 @@ pub enum Quantifier {
 }
 
 pub fn lex(re: &str) -> impl Iterator<Item = (Lex, Quantifier)> + '_ {
+    let mut saves = vec![];
+    let mut captures = 0;
     let re = re.chars().peekable();
     re.batching(move |re| {
         let lex = match re.next()? {
             '.' => Lex::AnyChar,
             '[' => Lex::CharacterSet(make_character_set(re)),
-            '(' => Lex::SaveOpen,
-            ')' => Lex::SaveClose,
+            '(' => {
+                captures += 1;
+                if captures > 9 {
+                    panic!("Too many captures.")
+                }
+                saves.push(captures);
+                Lex::SaveOpen(captures)
+            }
+            ')' => {
+                let captured = saves.pop().unwrap();
+                Lex::SaveClose(captured)
+            }
             '%' => match re.next()? {
                 'n' => match re.next()? {
                     d @ ('1'..='9') => Lex::Captured(d.to_digit(10).unwrap() as _),

@@ -1,8 +1,8 @@
 fn main() {
     
-    let re = rlp::nfa::compile(r"(мыла (%w+))");
+    let re = rlp::nfa::compile(r"%A%u+%A");
     println!("{:?}", re);
-    let s = "мама мыла раму.";
+    let s = "маМА мЫЛа РАМУ";
     dbg!(s.len());
     let m = re.match_all(s);
     println!("{:?}", m);
