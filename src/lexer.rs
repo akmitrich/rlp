@@ -180,7 +180,7 @@ mod test {
                 )],
             ),
             (
-                r"%n8",
+                r"%8",
                 [(PatternElement::Captured(8), Quantifier::ExactlyOne)],
             ),
         ];

@@ -20,6 +20,7 @@ impl Regex {
     pub fn new(re: &str) -> Self {
         let mut prog = vec![Code::Save(0)];
         let mut captures = 0;
+        let mut saves = 0;
         let anchor_start = re.starts_with('^');
         let anchor_end = re.ends_with('$');
         let re = re.strip_prefix('^').unwrap_or(re);
@@ -27,9 +28,13 @@ impl Regex {
 
         for (lex, quantifier) in lex(re) {
             if let PatternElement::SaveOpen(n) = &lex {
+                saves += 1;
                 if *n > captures {
                     captures = *n;
                 }
+            }
+            if let PatternElement::SaveClose(_) = &lex {
+                saves -= 1;
             }
             let code = code_for_lex(lex);
             let pc = prog.len();
@@ -69,6 +74,7 @@ impl Regex {
         prog.push(Code::Save(1));
         prog.push(Code::Match);
 
+        assert_eq!(0, saves);
         Self {
             program: prog.into_boxed_slice(),
             anchor_start,
@@ -119,5 +125,53 @@ fn code_for_lex(lex: PatternElement) -> Code {
         PatternElement::SaveOpen(n) => Code::Save(2 * n),
         PatternElement::SaveClose(n) => Code::Save(2 * n + 1),
         PatternElement::Frontier(s) => Code::Frontier(s),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{compile, CharacterClass::*, Code::*};
+
+    #[test]
+    fn it_works() {
+        assert_eq!(
+            [
+                Save(0),
+                Char(Literal('a')),
+                Char(Literal('b')),
+                Char(Literal('c')),
+                Save(1),
+                Match
+            ]
+            .as_slice(),
+            compile("abc").program.as_ref()
+        )
+    }
+
+    #[test]
+    fn char_classes_with_quantifiers() {
+        assert_eq!(
+            [
+                Save(0),
+                Char(Digit(true)),
+                Split { x: 1, y: 3 },
+                Split { x: 4, y: 6 },
+                Char(Letter(true)),
+                Jmp(3),
+                Split { x: 9, y: 7 },
+                Char(Hexadecimal(false)),
+                Jmp(6),
+                Split { x: 10, y: 11 },
+                Char(Unset(Box::new([
+                    AlphaNumeric(true),
+                    Literal('_'),
+                    Literal('.')
+                ]))),
+                Save(1),
+                Match
+            ]
+            .as_slice(),
+            compile("%d+%a*%X-[^%w_%.]?").program.as_ref()
+        )
     }
 }

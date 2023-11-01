@@ -1,6 +1,6 @@
 use super::character_class::CharacterClass;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Code {
     Char(CharacterClass),
     Captured(usize),
