@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::nfa::program::CharacterClass;
+use super::program::CharacterClass;
 
 #[derive(Debug, PartialEq)]
 pub enum Lex {
