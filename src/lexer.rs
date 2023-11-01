@@ -10,6 +10,7 @@ pub enum Lex {
     CharacterSet(CharacterClass),
     Captured(usize),
     Border(char, char),
+    Frontier(CharacterClass),
     SaveOpen(usize),
     SaveClose(usize),
 }
@@ -52,6 +53,13 @@ pub fn lex(re: &str) -> impl Iterator<Item = (Lex, Quantifier)> + '_ {
                     (x, y) if x != y => Lex::Border(x, y),
                     _ => panic!("Border chars must be different"),
                 },
+                'f' => {
+                    if let Some('[') = re.next() {
+                        Lex::Frontier(make_character_set(re))
+                    } else {
+                        panic!("After %f must be '['")
+                    }
+                }
                 c => Lex::CharacterClass(char_to_class(c)),
             },
             c => Lex::Literal(c),
@@ -83,7 +91,7 @@ where
     }
 }
 
-fn to_character_set<I>(re: &mut std::iter::Peekable<I>) -> Vec<CharacterClass>
+fn to_character_set<I>(re: &mut std::iter::Peekable<I>) -> Box<[CharacterClass]>
 where
     I: Iterator<Item = char>,
 {
@@ -227,12 +235,15 @@ mod test {
                 r"[%D?%w%-]-%U",
                 [
                     (
-                        Lex::CharacterSet(CharacterClass::Set(vec![
-                            CharacterClass::Digit(false),
-                            CharacterClass::Literal('?'),
-                            CharacterClass::AlphaNumeric(true),
-                            CharacterClass::Literal('-'),
-                        ])),
+                        Lex::CharacterSet(CharacterClass::Set(
+                            [
+                                CharacterClass::Digit(false),
+                                CharacterClass::Literal('?'),
+                                CharacterClass::AlphaNumeric(true),
+                                CharacterClass::Literal('-'),
+                            ]
+                            .into(),
+                        )),
                         Quantifier::ZeroOrManyUngreedy,
                     ),
                     (

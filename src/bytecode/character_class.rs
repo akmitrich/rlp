@@ -15,8 +15,8 @@ pub enum CharacterClass {
     Uppercase(bool),
     Hexadecimal(bool),
     Range(RangeInclusive<char>),
-    Set(Vec<CharacterClass>),
-    Unset(Vec<CharacterClass>),
+    Set(Box<[CharacterClass]>),
+    Unset(Box<[CharacterClass]>),
 }
 
 impl CharacterClass {

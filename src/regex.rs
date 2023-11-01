@@ -118,5 +118,6 @@ fn code_for_lex(lex: Lex) -> Code {
         Lex::Border(x, y) => Code::Border(x, y),
         Lex::SaveOpen(n) => Code::Save(2 * n),
         Lex::SaveClose(n) => Code::Save(2 * n + 1),
+        Lex::Frontier(s) => Code::Frontier(s),
     }
 }

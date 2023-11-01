@@ -49,6 +49,29 @@ pub fn exec(ctx: &mut Context) -> bool {
                 ctx.subj_pointer += 1;
                 ctx.program_counter += 1;
             }
+            Code::Frontier(s) => {
+                let prev = if ctx.subj_pointer == 0 {
+                    &'\0'
+                } else {
+                    ctx.subj
+                        .get(ctx.subj_pointer - 1)
+                        .map(|(_, prev)| prev)
+                        .unwrap_or(&'\0')
+                };
+                let current = if ctx.subj_pointer == ctx.subj.len() {
+                    &'\0'
+                } else {
+                    ctx.subj
+                        .get(ctx.subj_pointer)
+                        .map(|(_, other)| other)
+                        .unwrap_or(&'\0')
+                };
+                if s.is_matched(current) && !s.is_matched(prev) {
+                    ctx.program_counter += 1;
+                } else {
+                    return false;
+                }
+            }
             Code::Jmp(x) => ctx.program_counter = *x,
             Code::Split { x, y } => {
                 ctx.program_counter = *x;
