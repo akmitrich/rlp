@@ -1,6 +1,10 @@
 use crate::{
-    bytecode::{character_class::CharacterClass, code::Code, context::Context},
-    lexer::{lex, PatternElement, Quantifier},
+    bytecode::{
+        character_class::CharacterClass,
+        code::Code,
+        context::Context,
+        lexer::{lex, PatternElement, Quantifier},
+    },
     Match,
 };
 
@@ -94,7 +98,7 @@ impl Regex {
                     let found = Match {
                         subj,
                         captures: (0..(self.captures + 1))
-                            .map(|n| &subj[ctx.captured_range(n)])
+                            .map(|n| ctx.captured_range(n))
                             .collect(),
                     };
                     println!("Found: {:?}", ctx.saved);

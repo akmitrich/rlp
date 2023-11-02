@@ -4,7 +4,19 @@ fn main() {
     let s = "маМА мЫЛа МЫла РАМУ";
     dbg!(s.len());
     let m = re.match_all(s);
-    println!("{:?}", m);
+    println!("{:?} -> {:?}", m, m.iter().map(|m| m.captures()).collect::<Vec<_>>());
+
+    let re = rlp::regex::compile(r"()мыла()");
+    println!("{:?}", re);
+    let s = "Мама мыла раму.";
+    let m = re.match_all(s);
+    println!("{:?} -> {:?}", m, m.iter().map(|m| m.captures()).collect::<Vec<_>>());
+
+    let re = rlp::regex::compile(r"(а*(.)%w(%s*))");
+    println!("{:?}", re);
+    let s = "Мама мыла раму.";
+    let m = re.match_all(s);
+    println!("{:?} -> {:?}", m, m.iter().map(|m| m.captures()).collect::<Vec<_>>())
 }
 
 fn _main() {
