@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::{
     bytecode::{
         character_class::CharacterClass,
@@ -5,6 +7,7 @@ use crate::{
         context::Context,
         lexer::{lex, PatternElement, Quantifier},
     },
+    input::Input,
     Match,
 };
 
@@ -87,35 +90,55 @@ impl Regex {
         }
     }
 
+    pub fn match_one<'a>(&self, subj: &'a str) -> Option<Match<'a>> {
+        let mut ctx = Context::new(&self.program, Input::new(subj));
+        self.find_match(&mut ctx)
+            .map(|captures| Match { subj, captures })
+    }
+
     pub fn match_all<'a>(&self, subj: &'a str) -> Box<[Match<'a>]> {
         let mut matches = vec![];
-        let input = subj.char_indices().collect::<Vec<_>>().into_boxed_slice();
-        println!("Input: {:?}", input.iter().enumerate().collect::<Vec<_>>());
-        let mut ctx = Context::new(&self.program, &input);
-        while ctx.subj_pointer < input.len() {
-            if crate::recursive::exec(&mut ctx) {
-                if !self.anchor_end || ctx.subj_pointer >= input.len() {
-                    let found = Match {
-                        subj,
-                        captures: (0..(self.captures + 1))
-                            .map(|n| ctx.captured_range(n))
-                            .collect(),
-                    };
-                    println!("Found: {:?}", ctx.saved);
-                    if found.captures.first().unwrap().is_empty() {
-                        ctx.subj_pointer += 1;
-                    }
-                    matches.push(found);
-                }
-            } else {
-                ctx.subj_pointer += 1;
+        let mut ctx = Context::new(&self.program, Input::new(subj));
+        while !ctx.exhausted() {
+            if let Some(captures) = self.find_match(&mut ctx) {
+                matches.push(Match { subj, captures });
             }
             if self.anchor_start {
                 break;
             }
-            ctx.program_counter = 0;
         }
         matches.into()
+    }
+}
+
+impl Regex {
+    fn find_match(&self, ctx: &mut Context) -> Option<Box<[Range<usize>]>> {
+        let mut found = None;
+        while found.is_none() && !ctx.exhausted() {
+            if crate::recursive::exec(ctx) {
+                if !self.anchor_end || ctx.exhausted() {
+                    let matches = self.captured_ranges(ctx);
+                    println!("Found: {:?}", ctx.saved);
+                    if matches.first().unwrap().is_empty() {
+                        ctx.subj_pointer += 1;
+                    }
+                    found = Some(matches);
+                }
+            } else {
+                ctx.subj_pointer += 1;
+            }
+            ctx.program_counter = 0;
+            if self.anchor_start {
+                break;
+            }
+        }
+        found
+    }
+
+    fn captured_ranges(&self, ctx: &Context) -> Box<[Range<usize>]> {
+        (0..(self.captures + 1))
+            .map(|n| ctx.captured_range(n))
+            .collect()
     }
 }
 

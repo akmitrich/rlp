@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 mod bytecode;
+mod input;
 mod recursive;
 pub mod regex;
 
@@ -35,5 +36,17 @@ impl Match<'_> {
         (0..self.captures.len())
             .map(|n| self.capture(n))
             .map(Option::unwrap)
+    }
+
+    pub fn captured_str(&self) -> Box<[&str]> {
+        self.captures_iter()
+            .filter_map(|capture| {
+                if let Capture::Value(s) = capture {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
