@@ -45,7 +45,13 @@ pub fn lex(re: &str) -> impl Iterator<Item = (PatternElement, Quantifier)> + '_ 
                 PatternElement::SaveClose(captured)
             }
             '%' => match re.next()? {
-                d @ ('1'..='9') => PatternElement::Captured(d.to_digit(10).unwrap() as _),
+                d @ ('1'..='9') => {
+                    let d = d.to_digit(10).unwrap() as usize;
+                    if saves.contains(&d) || d > captures {
+                        panic!("You have no such capture {}", d);
+                    }
+                    PatternElement::Captured(d)
+                }
                 'b' => match (re.next()?, re.next()?) {
                     (x, y) if x != y => PatternElement::Border(x, y),
                     _ => panic!("Border chars must be different"),

@@ -15,8 +15,8 @@ pub(crate) fn exec(ctx: &mut Context) -> bool {
             }
             Code::Captured(n) => {
                 let old = ctx.subj_pointer;
-                for i in ctx.saved_range(*n) {
-                    if ctx.input.get_char(ctx.subj_pointer) == ctx.input.get_char(i) {
+                for captured_index in ctx.saved_range(*n) {
+                    if ctx.input.get_char(ctx.subj_pointer) == ctx.input.get_char(captured_index) {
                         ctx.subj_pointer += 1;
                     } else {
                         ctx.subj_pointer = old;
