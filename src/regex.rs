@@ -91,16 +91,16 @@ impl Regex {
     }
 
     pub fn match_one<'a>(&self, subj: &'a str) -> Option<Match<'a>> {
-        let mut ctx = Context::new(&self.program, Input::new(subj));
-        self.find_match(&mut ctx)
+        let mut ctx = Context::new(&self.program, Input::new(subj), self.captures);
+        self.find_match_ranges(&mut ctx)
             .map(|captures| Match { subj, captures })
     }
 
     pub fn match_all<'a>(&self, subj: &'a str) -> Box<[Match<'a>]> {
         let mut matches = vec![];
-        let mut ctx = Context::new(&self.program, Input::new(subj));
+        let mut ctx = Context::new(&self.program, Input::new(subj), self.captures);
         while !ctx.exhausted() {
-            if let Some(captures) = self.find_match(&mut ctx) {
+            if let Some(captures) = self.find_match_ranges(&mut ctx) {
                 matches.push(Match { subj, captures });
             }
             if self.anchor_start {
@@ -112,17 +112,17 @@ impl Regex {
 }
 
 impl Regex {
-    fn find_match(&self, ctx: &mut Context) -> Option<Box<[Range<usize>]>> {
-        let mut found = None;
-        while found.is_none() && !ctx.exhausted() {
+    fn find_match_ranges(&self, ctx: &mut Context) -> Option<Box<[Range<usize>]>> {
+        ctx.program_counter = 0;
+        while !ctx.exhausted() {
             if crate::recursive::exec(ctx) {
                 if !self.anchor_end || ctx.exhausted() {
-                    let matches = self.captured_ranges(ctx);
+                    let matches = ctx.captured_ranges();
                     println!("Found: {:?}", ctx.saved);
                     if matches.first().unwrap().is_empty() {
                         ctx.subj_pointer += 1;
                     }
-                    found = Some(matches);
+                    return Some(matches);
                 }
             } else {
                 ctx.subj_pointer += 1;
@@ -132,13 +132,7 @@ impl Regex {
                 break;
             }
         }
-        found
-    }
-
-    fn captured_ranges(&self, ctx: &Context) -> Box<[Range<usize>]> {
-        (0..(self.captures + 1))
-            .map(|n| ctx.captured_range(n))
-            .collect()
+        None
     }
 }
 
