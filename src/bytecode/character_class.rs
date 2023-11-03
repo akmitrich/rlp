@@ -20,9 +20,9 @@ pub enum CharacterClass {
 }
 
 impl CharacterClass {
-    pub fn is_matched(&self, other: &char) -> bool {
+    pub fn is_matched(&self, other: char) -> bool {
         match self {
-            CharacterClass::Literal(c) => c == other,
+            CharacterClass::Literal(c) => *c == other,
             CharacterClass::Any => true,
             CharacterClass::AlphaNumeric(is_in) => {
                 if *is_in {
@@ -54,17 +54,17 @@ impl CharacterClass {
             }
             CharacterClass::Printable(is_in) => {
                 if *is_in {
-                    other.is_ascii_graphic() && other != &' '
+                    other.is_ascii_graphic() && other != ' '
                 } else {
-                    !other.is_ascii_graphic() || other == &' '
+                    !other.is_ascii_graphic() || other == ' '
                 }
             }
             CharacterClass::Lowercase(is_in) => {
                 other.is_alphabetic()
                     && if *is_in {
-                        other.to_lowercase().next() == Some(*other)
+                        other.to_lowercase().next() == Some(other)
                     } else {
-                        other.to_lowercase().next() != Some(*other)
+                        other.to_lowercase().next() != Some(other)
                     }
             }
             CharacterClass::Punctuation(is_in) => {
@@ -84,9 +84,9 @@ impl CharacterClass {
             CharacterClass::Uppercase(is_in) => {
                 other.is_alphabetic()
                     && if *is_in {
-                        other.to_uppercase().next() == Some(*other)
+                        other.to_uppercase().next() == Some(other)
                     } else {
-                        other.to_uppercase().next() != Some(*other)
+                        other.to_uppercase().next() != Some(other)
                     }
             }
             CharacterClass::Hexadecimal(is_in) => {
@@ -96,7 +96,7 @@ impl CharacterClass {
                     !other.is_ascii_hexdigit()
                 }
             }
-            CharacterClass::Range(r) => r.contains(other),
+            CharacterClass::Range(r) => r.contains(&other),
             CharacterClass::Set(s) => s.iter().any(|x| x.is_matched(other)),
             CharacterClass::Unset(s) => s.iter().all(|x| !x.is_matched(other)),
         }

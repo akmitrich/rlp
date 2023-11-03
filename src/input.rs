@@ -16,8 +16,8 @@ impl<'a> Input<'a> {
         self.chars.len()
     }
 
-    pub fn get_char(&self, index: usize) -> Option<char> {
-        self.chars.get(index).map(|(_, c)| *c)
+    pub fn get_char(&self, index: usize) -> Option<&char> {
+        self.chars.get(index).map(|(_, c)| c)
     }
 
     pub fn get_byte_index(&self, char_index: usize) -> Option<usize> {

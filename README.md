@@ -40,6 +40,6 @@ enum Code {
     Match,
 }
 ```
-That is why this crate is far far from production quality. Please make some improvements to it. Or be inspired to make your implementation of the Lua patterns in Rust.
+That is why this crate is far far from production quality. You are welcomed to make some improvements to it. Or be inspired to make your own implementation of the Lua patterns in Rust.
 
 Keep in touch!

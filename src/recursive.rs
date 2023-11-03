@@ -5,8 +5,8 @@ pub(crate) fn exec(ctx: &mut Context) -> bool {
     loop {
         match &ctx.program[ctx.program_counter] {
             Code::Char(c) => {
-                let other = ctx.input.get_char(ctx.subj_pointer);
-                if other.is_some() && c.is_matched(&other.unwrap()) {
+                let other = ctx.input.get_char(ctx.subj_pointer).copied();
+                if other.is_some() && c.is_matched(other.unwrap()) {
                     ctx.program_counter += 1;
                     ctx.subj_pointer += 1;
                 } else {
@@ -28,17 +28,17 @@ pub(crate) fn exec(ctx: &mut Context) -> bool {
             Code::Border(x, y) => {
                 let old = ctx.subj_pointer;
                 let start = ctx.input.get_char(ctx.subj_pointer);
-                if start.is_none() || x != &start.unwrap() {
+                if start.is_none() || x != start.unwrap() {
                     return false;
                 }
                 let mut counter = 1;
                 while counter > 0 {
                     ctx.subj_pointer += 1;
                     if let Some(c) = ctx.input.get_char(ctx.subj_pointer) {
-                        if x == &c {
+                        if x == c {
                             counter += 1;
                         }
-                        if y == &c {
+                        if y == c {
                             counter -= 1;
                         }
                     } else {
@@ -53,10 +53,17 @@ pub(crate) fn exec(ctx: &mut Context) -> bool {
                 let prev = if ctx.subj_pointer == 0 {
                     '\0'
                 } else {
-                    ctx.input.get_char(ctx.subj_pointer - 1).unwrap_or('\0')
+                    ctx.input
+                        .get_char(ctx.subj_pointer - 1)
+                        .copied()
+                        .unwrap_or('\0')
                 };
-                let current = ctx.input.get_char(ctx.subj_pointer).unwrap_or('\0');
-                if s.is_matched(&current) && !s.is_matched(&prev) {
+                let current = ctx
+                    .input
+                    .get_char(ctx.subj_pointer)
+                    .copied()
+                    .unwrap_or('\0');
+                if s.is_matched(current) && !s.is_matched(prev) {
                     ctx.program_counter += 1;
                 } else {
                     return false;
